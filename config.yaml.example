@@ -1,0 +1,35 @@
+# 微信公众号爬虫配置文件
+# 复制此文件为 config.yaml 并修改以下配置
+
+# 要监控的公众号列表
+accounts:
+  - "人民日报"
+  - "新华社"
+  - "央视新闻"
+  - "澎湃新闻"
+  # 添加更多你想关注的公众号...
+
+# 每日爬取时间 (24小时制, 格式: HH:MM)
+scrape_time: "08:00"
+
+# 每日摘要生成时间 (24小时制, 格式: HH:MM)
+digest_time: "20:00"
+
+# 每个公众号爬取的页数 (每页约10篇文章)
+# 建议: 1-5页, 太多可能被限制访问
+max_pages: 3
+
+# 是否启用周摘要
+enable_weekly_digest: true
+
+# 周摘要生成日期 (monday, tuesday, wednesday, thursday, friday, saturday, sunday)
+weekly_digest_day: "sunday"
+
+# 周摘要生成时间
+weekly_digest_time: "21:00"
+
+# 数据库文件路径 (可选，默认为 wechat_articles.db)
+# database: "wechat_articles.db"
+
+# 摘要输出目录 (可选，默认为 digests/)
+# output_dir: "digests"
