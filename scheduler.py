@@ -10,6 +10,7 @@ import yaml
 import os
 from datetime import datetime
 from wechat_scraper import WeChatScraper
+from wechat_scraper_direct import scrape_wechat_direct
 from digest_generator import DigestGenerator
 from article_storage import ArticleStorage
 import logging
@@ -87,13 +88,29 @@ class TaskScheduler:
 
             accounts = self.config.get('accounts', [])
             days = self.config.get('days', 7)  # 默认爬取最近7天
+            scrape_method = self.config.get('scrape_method', 'sogou')  # 默认使用搜狗
 
             if not accounts:
                 logger.warning("配置中没有公众号列表，跳过爬取任务")
                 return
 
+            logger.info(f"爬取方式: {scrape_method}")
             logger.info(f"目标: 爬取最近 {days} 天的文章")
-            self.scraper.scrape_multiple_accounts(accounts, days)
+
+            # 根据配置选择爬取方式
+            if scrape_method == 'direct':
+                logger.info("使用直接爬取方式（Playwright + 微信公众号）")
+                total_saved = 0
+                for account in accounts:
+                    try:
+                        saved = scrape_wechat_direct(account, days)
+                        total_saved += saved
+                    except Exception as e:
+                        logger.error(f"爬取 {account} 失败: {e}")
+                logger.info(f"总计保存 {total_saved} 篇新文章")
+            else:
+                logger.info("使用搜狗微信搜索方式")
+                self.scraper.scrape_multiple_accounts(accounts, days)
 
             # 显示统计
             stats = self.storage.get_statistics()
