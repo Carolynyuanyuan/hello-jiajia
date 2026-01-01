@@ -132,21 +132,74 @@ class TaskScheduler:
         except Exception as e:
             logger.error(f"周摘要生成任务执行失败: {e}", exc_info=True)
 
+    def weekly_scrape_and_digest_task(self):
+        """每周爬取并生成摘要的组合任务"""
+        try:
+            logger.info("=" * 60)
+            logger.info("开始执行每周任务：爬取文章 + 生成周摘要")
+            logger.info("=" * 60)
+
+            # 先执行爬取
+            self.scrape_task()
+
+            # 等待一小会儿，确保数据写入完成
+            import time
+            time.sleep(2)
+
+            # 生成周摘要
+            self.weekly_digest_task()
+
+            logger.info("=" * 60)
+            logger.info("每周任务完成")
+            logger.info("=" * 60)
+
+        except Exception as e:
+            logger.error(f"每周任务执行失败: {e}", exc_info=True)
+
     def setup_schedule(self):
         """设置定时任务"""
-        scrape_time = self.config.get('scrape_time', '08:00')
-        digest_time = self.config.get('digest_time', '20:00')
+        # 检查新配置格式（每周爬取）
+        scrape_schedule = self.config.get('scrape_schedule', {})
+        if scrape_schedule.get('enabled', False):
+            # 每周爬取模式
+            day = scrape_schedule.get('day', 'monday').lower()
+            time_str = scrape_schedule.get('time', '09:00')
 
-        # 每日爬取任务
-        schedule.every().day.at(scrape_time).do(self.scrape_task)
-        logger.info(f"✓ 已设置每日爬取任务: {scrape_time}")
+            day_map = {
+                'monday': schedule.every().monday,
+                'tuesday': schedule.every().tuesday,
+                'wednesday': schedule.every().wednesday,
+                'thursday': schedule.every().thursday,
+                'friday': schedule.every().friday,
+                'saturday': schedule.every().saturday,
+                'sunday': schedule.every().sunday
+            }
 
-        # 每日摘要任务
-        schedule.every().day.at(digest_time).do(self.digest_task)
-        logger.info(f"✓ 已设置每日摘要任务: {digest_time}")
+            if day in day_map:
+                # 检查是否需要在爬取后自动生成摘要
+                weekly_digest_config = self.config.get('weekly_digest', {})
+                if weekly_digest_config.get('generate_after_scrape', False):
+                    # 组合任务：爬取 + 生成摘要
+                    day_map[day].at(time_str).do(self.weekly_scrape_and_digest_task)
+                    logger.info(f"✓ 已设置每周任务（爬取+摘要）: 每周{day} {time_str}")
+                else:
+                    # 仅爬取
+                    day_map[day].at(time_str).do(self.scrape_task)
+                    logger.info(f"✓ 已设置每周爬取任务: 每周{day} {time_str}")
 
-        # 周摘要任务（可选）
-        if self.config.get('enable_weekly_digest', False):
+        # 兼容旧的每日配置格式
+        if self.config.get('daily_scrape_enabled', False):
+            scrape_time = self.config.get('scrape_time', '08:00')
+            schedule.every().day.at(scrape_time).do(self.scrape_task)
+            logger.info(f"✓ 已设置每日爬取任务: {scrape_time}")
+
+        if self.config.get('daily_digest_enabled', False):
+            digest_time = self.config.get('digest_time', '20:00')
+            schedule.every().day.at(digest_time).do(self.digest_task)
+            logger.info(f"✓ 已设置每日摘要任务: {digest_time}")
+
+        # 旧的周摘要配置（独立执行）
+        if self.config.get('enable_weekly_digest', False) and not scrape_schedule.get('enabled', False):
             weekly_day = self.config.get('weekly_digest_day', 'sunday').lower()
             weekly_time = self.config.get('weekly_digest_time', '21:00')
 
@@ -189,12 +242,30 @@ class TaskScheduler:
         # 显示配置
         logger.info("\n当前配置:")
         logger.info(f"  监控公众号: {', '.join(self.config.get('accounts', []))}")
-        logger.info(f"  爬取时间: {self.config.get('scrape_time', '08:00')}")
-        logger.info(f"  摘要时间: {self.config.get('digest_time', '20:00')}")
         logger.info(f"  每页抓取: {self.config.get('max_pages', 3)} 页")
 
-        if self.config.get('enable_weekly_digest', False):
-            logger.info(f"  周摘要: 启用 (每周{self.config.get('weekly_digest_day', 'sunday')} {self.config.get('weekly_digest_time', '21:00')})")
+        # 显示爬取调度
+        scrape_schedule = self.config.get('scrape_schedule', {})
+        if scrape_schedule.get('enabled', False):
+            day_cn = {
+                'monday': '周一', 'tuesday': '周二', 'wednesday': '周三',
+                'thursday': '周四', 'friday': '周五', 'saturday': '周六', 'sunday': '周日'
+            }
+            day = scrape_schedule.get('day', 'monday').lower()
+            time_str = scrape_schedule.get('time', '09:00')
+            logger.info(f"  爬取计划: 每{day_cn.get(day, day)} {time_str}")
+
+            weekly_digest_config = self.config.get('weekly_digest', {})
+            if weekly_digest_config.get('generate_after_scrape', False):
+                logger.info(f"  周摘要: 爬取完成后自动生成")
+        else:
+            # 旧配置格式
+            if self.config.get('daily_scrape_enabled', False):
+                logger.info(f"  爬取时间: 每天 {self.config.get('scrape_time', '08:00')}")
+            if self.config.get('daily_digest_enabled', False):
+                logger.info(f"  摘要时间: 每天 {self.config.get('digest_time', '20:00')}")
+            if self.config.get('enable_weekly_digest', False):
+                logger.info(f"  周摘要: 启用 (每周{self.config.get('weekly_digest_day', 'sunday')} {self.config.get('weekly_digest_time', '21:00')})")
 
         # 设置定时任务
         self.setup_schedule()

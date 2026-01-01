@@ -1,35 +1,42 @@
 # 微信公众号爬虫配置文件
-# 复制此文件为 config.yaml 并修改以下配置
+# 默认配置：光储星球公众号，每周一早上9点爬取
 
 # 要监控的公众号列表
 accounts:
-  - "人民日报"
-  - "新华社"
-  - "央视新闻"
-  - "澎湃新闻"
-  # 添加更多你想关注的公众号...
+  - "光储星球"
+  # 添加更多公众号:
+  # - "另一个公众号"
 
-# 每日爬取时间 (24小时制, 格式: HH:MM)
-scrape_time: "08:00"
+# ==== 每周爬取模式（推荐）====
+# 每周定时爬取上周内容并生成摘要
+scrape_schedule:
+  enabled: true
+  day: "monday"        # 星期几 (monday, tuesday, wednesday, thursday, friday, saturday, sunday)
+  time: "09:00"        # 时间 (24小时制, HH:MM)
 
-# 每日摘要生成时间 (24小时制, 格式: HH:MM)
-digest_time: "20:00"
+# 周摘要配置
+weekly_digest:
+  enabled: true
+  generate_after_scrape: true  # 爬取完成后自动生成摘要
 
 # 每个公众号爬取的页数 (每页约10篇文章)
-# 建议: 1-5页, 太多可能被限制访问
-max_pages: 3
+# 建议: 3-5页可以覆盖一周的内容
+max_pages: 5
 
-# 是否启用周摘要
-enable_weekly_digest: true
+# ==== 每日模式（可选，默认禁用）====
+# 如需每日爬取，启用以下配置并禁用上面的 scrape_schedule
+daily_scrape_enabled: false
+daily_digest_enabled: false
+scrape_time: "08:00"    # 每日爬取时间
+digest_time: "20:00"    # 每日摘要时间
 
-# 周摘要生成日期 (monday, tuesday, wednesday, thursday, friday, saturday, sunday)
+# 传统周摘要配置（当使用每日模式时）
+enable_weekly_digest: false
 weekly_digest_day: "sunday"
-
-# 周摘要生成时间
 weekly_digest_time: "21:00"
 
 # 数据库文件路径 (可选，默认为 wechat_articles.db)
-# database: "wechat_articles.db"
+database: "wechat_articles.db"
 
 # 摘要输出目录 (可选，默认为 digests/)
-# output_dir: "digests"
+output_dir: "digests"

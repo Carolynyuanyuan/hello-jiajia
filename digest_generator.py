@@ -202,52 +202,51 @@ class DigestGenerator:
         lines = []
 
         # 标题
-        lines.append(f"# 微信公众号周摘要\n")
+        lines.append(f"# 光储星球 - 本周文章摘要\n")
         lines.append(f"**时间范围**: {start_date} 至 {end_date}\n")
         lines.append(f"*生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n")
 
         # 统计信息
         total_articles = sum(len(articles) for articles in grouped_by_date.values())
-        all_accounts = set()
-        for articles in grouped_by_date.values():
-            for article in articles:
-                all_accounts.add(article['account_name'])
 
         lines.append("## 📊 本周统计\n")
         lines.append(f"- **文章总数**: {total_articles} 篇")
-        lines.append(f"- **公众号数**: {len(all_accounts)} 个")
-        lines.append(f"- **活跃天数**: {len(grouped_by_date)} 天")
         lines.append("")
 
         # 按日期列出文章
         lines.append("---\n")
-        lines.append("## 📅 按日期浏览\n")
+        lines.append("## 📰 文章列表\n")
 
+        article_count = 1
         for date in sorted(grouped_by_date.keys(), reverse=True):
             articles = grouped_by_date[date]
-            weekday = datetime.strptime(date, '%Y-%m-%d').strftime('%A')
+            weekday_map = {
+                'Monday': '星期一', 'Tuesday': '星期二', 'Wednesday': '星期三',
+                'Thursday': '星期四', 'Friday': '星期五', 'Saturday': '星期六', 'Sunday': '星期日'
+            }
+            weekday_en = datetime.strptime(date, '%Y-%m-%d').strftime('%A')
+            weekday_cn = weekday_map.get(weekday_en, weekday_en)
 
-            lines.append(f"### {date} ({weekday})\n")
-            lines.append(f"*{len(articles)} 篇文章*\n")
+            lines.append(f"### 📅 {date} ({weekday_cn})\n")
 
-            # 按公众号分组
-            account_grouped = self._group_by_account(articles)
+            for article in articles:
+                lines.append(f"#### {article_count}. {article['title']}\n")
 
-            for account in sorted(account_grouped.keys()):
-                account_articles = account_grouped[account]
-                lines.append(f"#### 📱 {account}\n")
+                lines.append(f"**发布时间**: {article['publish_time']}\n")
 
-                for article in account_articles:
-                    lines.append(f"- **{article['title']}**")
-                    if article['url']:
-                        lines.append(f"  - [阅读原文]({article['url']})")
-                    lines.append("")
+                if article['summary']:
+                    lines.append(f"**内容摘要**:\n{article['summary']}\n")
+                else:
+                    lines.append(f"*暂无摘要*\n")
 
-            lines.append("")
+                if article['url']:
+                    lines.append(f"**阅读链接**: [{article['url']}]({article['url']})\n")
+
+                lines.append("---\n")
+                article_count += 1
 
         # 页脚
-        lines.append("\n---\n")
-        lines.append("*本周摘要由微信公众号爬虫自动生成*")
+        lines.append("\n*本摘要由微信公众号爬虫自动生成*")
 
         return "\n".join(lines)
 
