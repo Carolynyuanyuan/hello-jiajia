@@ -16,12 +16,30 @@ from article_storage import ArticleStorage
 class WeChatDirectScraper:
     """微信公众号直接爬虫（使用 Playwright）"""
 
-    def __init__(self, storage: ArticleStorage = None):
+    def __init__(self, storage: ArticleStorage = None, cookies: str = None):
         """初始化爬虫"""
         self.storage = storage or ArticleStorage()
         self.biz_mapping = {
             '光储星球': 'MzkyNzYxNzYwNg=='
         }
+        self.cookies = cookies  # Cookie 字符串，用于认证
+
+    def _parse_cookies(self, cookie_string: str) -> List[Dict]:
+        """解析 Cookie 字符串为 Playwright 格式"""
+        if not cookie_string:
+            return []
+
+        cookies = []
+        for item in cookie_string.split('; '):
+            if '=' in item:
+                name, value = item.split('=', 1)
+                cookies.append({
+                    'name': name.strip(),
+                    'value': value.strip(),
+                    'domain': '.qq.com',
+                    'path': '/'
+                })
+        return cookies
 
     async def get_articles_from_wechat(self, account_name: str, days: int = 7) -> List[Dict]:
         """
@@ -68,6 +86,12 @@ class WeChatDirectScraper:
             )
 
             page = await context.new_page()
+
+            # 如果提供了 Cookie，注入到浏览器上下文
+            if self.cookies:
+                cookies = self._parse_cookies(self.cookies)
+                await context.add_cookies(cookies)
+                print(f"✓ 已注入 {len(cookies)} 个 Cookie（已认证）")
 
             try:
                 # 构建历史消息 URL
@@ -346,10 +370,29 @@ class WeChatDirectScraper:
         return saved_count
 
 
+# Cookie 加载函数
+def load_cookies_from_file(filepath: str = 'wechat_cookies.txt') -> Optional[str]:
+    """从文件加载 Cookie"""
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            cookies = f.read().strip()
+            return cookies if cookies else None
+    except FileNotFoundError:
+        print(f"⚠️  未找到 Cookie 文件: {filepath}")
+        return None
+    except Exception as e:
+        print(f"⚠️  读取 Cookie 文件失败: {e}")
+        return None
+
+
 # 同步包装函数
-def scrape_wechat_direct(account_name: str, days: int = 7) -> int:
+def scrape_wechat_direct(account_name: str, days: int = 7, cookies: str = None) -> int:
     """同步接口：爬取微信公众号"""
-    scraper = WeChatDirectScraper()
+    # 如果没有提供 Cookie，尝试从文件加载
+    if cookies is None:
+        cookies = load_cookies_from_file()
+
+    scraper = WeChatDirectScraper(cookies=cookies)
     return asyncio.run(scraper.scrape_and_save(account_name, days))
 
 
