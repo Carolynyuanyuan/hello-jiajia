@@ -1,0 +1,13 @@
+# 微信 Cookie 配置文件（示例）
+#
+# 使用方法：
+# 1. 复制此文件为 wechat_cookies.txt:
+#    cp wechat_cookies.txt.example wechat_cookies.txt
+#
+# 2. 在浏览器中访问微信公众号文章，使用开发者工具获取 Cookie
+# 3. 将获取到的 Cookie 粘贴到下面（替换示例内容）
+# 4. 保存文件后，运行爬虫即可
+#
+# 注意：wechat_cookies.txt 已加入 .gitignore，不会被提交到 git
+
+your_cookie_string_here
