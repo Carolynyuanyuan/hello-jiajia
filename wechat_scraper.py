@@ -57,21 +57,36 @@ class WeChatScraper:
             print(f"搜索公众号失败: {e}")
             return None
 
-    def get_articles_from_sogou(self, account_name: str, max_pages: int = 3) -> List[Dict]:
+    def get_articles_from_sogou(self, account_name: str, days: int = 7, max_pages: int = 20) -> List[Dict]:
         """
-        从搜狗微信搜索获取公众号文章列表
+        从搜狗微信搜索获取公众号文章列表（按时间范围）
 
         Args:
             account_name: 公众号名称
-            max_pages: 最大爬取页数
+            days: 爬取最近多少天的文章（默认7天，即上一周）
+            max_pages: 最大页数限制，防止无限爬取（默认20页）
 
         Returns:
             文章信息列表
         """
+        from datetime import datetime, timedelta
+
         articles = []
         search_url = f"{self.base_url}/weixin?type=2&query={quote(account_name)}"
 
-        for page in range(1, max_pages + 1):
+        # 计算时间范围
+        end_time = datetime.now()
+        start_time = end_time - timedelta(days=days)
+
+        print(f"爬取时间范围: {start_time.strftime('%Y-%m-%d')} 至 {end_time.strftime('%Y-%m-%d')}")
+        print(f"目标: 获取上{days}天内的所有文章\n")
+
+        # 用于跟踪连续多少篇文章超出时间范围
+        consecutive_old_articles = 0
+        max_consecutive_old = 5  # 如果连续5篇文章都太老，就停止爬取
+
+        page = 1
+        while page <= max_pages:
             try:
                 url = f"{search_url}&page={page}"
                 print(f"正在爬取第 {page} 页...")
@@ -86,14 +101,44 @@ class WeChatScraper:
                     print(f"第 {page} 页没有找到文章，停止爬取")
                     break
 
+                page_has_valid_article = False
+
                 for news in news_list:
                     try:
                         article = self._parse_article(news, account_name)
-                        if article:
+                        if not article:
+                            continue
+
+                        # 解析文章发布时间
+                        article_time = datetime.strptime(article['publish_time'], '%Y-%m-%d %H:%M:%S')
+
+                        # 检查是否在时间范围内
+                        if article_time >= start_time and article_time <= end_time:
                             articles.append(article)
+                            print(f"  ✓ [{article_time.strftime('%m-%d %H:%M')}] {article['title'][:40]}...")
+                            consecutive_old_articles = 0
+                            page_has_valid_article = True
+                        elif article_time < start_time:
+                            # 文章太老
+                            consecutive_old_articles += 1
+                            print(f"  ✗ 文章超出时间范围: {article['title'][:40]}... ({article_time.strftime('%Y-%m-%d')})")
+                        # 如果 article_time > end_time，文章太新，继续查找
+
                     except Exception as e:
-                        print(f"解析文章失败: {e}")
+                        print(f"  ✗ 解析文章失败: {e}")
                         continue
+
+                # 如果连续多篇文章都太老，停止爬取
+                if consecutive_old_articles >= max_consecutive_old:
+                    print(f"\n已连续遇到 {consecutive_old_articles} 篇超出时间范围的文章，停止爬取")
+                    break
+
+                # 如果这一页没有任何有效文章，且已经有一些文章了，可能已经爬完
+                if not page_has_valid_article and len(articles) > 0:
+                    print(f"\n第 {page} 页没有符合时间范围的文章，停止爬取")
+                    break
+
+                page += 1
 
                 # 随机延迟，避免被封
                 time.sleep(random.uniform(2, 5))
@@ -102,6 +147,7 @@ class WeChatScraper:
                 print(f"爬取第 {page} 页失败: {e}")
                 break
 
+        print(f"\n爬取完成: 共获取 {len(articles)} 篇文章")
         return articles
 
     def _parse_article(self, news_element, account_name: str) -> Optional[Dict]:
@@ -198,47 +244,53 @@ class WeChatScraper:
         # 默认返回当前时间
         return now.strftime('%Y-%m-%d %H:%M:%S')
 
-    def scrape_and_save(self, account_name: str, max_pages: int = 3) -> int:
+    def scrape_and_save(self, account_name: str, days: int = 7) -> int:
         """
-        爬取公众号文章并保存到数据库
+        爬取公众号文章并保存到数据库（按时间范围）
 
         Args:
             account_name: 公众号名称
-            max_pages: 最大爬取页数
+            days: 爬取最近多少天的文章（默认7天）
 
         Returns:
             成功保存的文章数量
         """
-        print(f"\n开始爬取公众号: {account_name}")
-        articles = self.get_articles_from_sogou(account_name, max_pages)
+        print(f"\n{'='*60}")
+        print(f"开始爬取公众号: {account_name}")
+        print(f"{'='*60}")
 
+        articles = self.get_articles_from_sogou(account_name, days)
+
+        print(f"\n保存文章到数据库...")
         saved_count = 0
         for article in articles:
             if self.storage.add_article(article):
                 saved_count += 1
-                print(f"✓ 保存文章: {article['title']}")
+                print(f"  ✓ 保存: {article['title'][:50]}...")
             else:
-                print(f"✗ 文章已存在: {article['title']}")
+                print(f"  ✗ 已存在: {article['title'][:50]}...")
 
         # 更新公众号信息
         self.storage.update_account(account_name)
 
-        print(f"\n爬取完成: 获取 {len(articles)} 篇文章，保存 {saved_count} 篇新文章")
+        print(f"\n{'='*60}")
+        print(f"爬取完成: 获取 {len(articles)} 篇文章，保存 {saved_count} 篇新文章")
+        print(f"{'='*60}\n")
         return saved_count
 
-    def scrape_multiple_accounts(self, account_names: List[str], max_pages: int = 3):
+    def scrape_multiple_accounts(self, account_names: List[str], days: int = 7):
         """
-        批量爬取多个公众号
+        批量爬取多个公众号（按时间范围）
 
         Args:
             account_names: 公众号名称列表
-            max_pages: 每个公众号的最大爬取页数
+            days: 爬取最近多少天的文章（默认7天）
         """
         total_saved = 0
 
         for account_name in account_names:
             try:
-                saved = self.scrape_and_save(account_name, max_pages)
+                saved = self.scrape_and_save(account_name, days)
                 total_saved += saved
 
                 # 每个公众号之间随机延迟
@@ -248,16 +300,18 @@ class WeChatScraper:
                 print(f"爬取公众号 {account_name} 失败: {e}")
                 continue
 
-        print(f"\n\n总计保存 {total_saved} 篇新文章")
+        print(f"\n\n{'='*60}")
+        print(f"总计保存 {total_saved} 篇新文章")
+        print(f"{'='*60}")
 
 
 if __name__ == "__main__":
     # 测试代码
     scraper = WeChatScraper()
 
-    # 测试爬取单个公众号
-    test_account = "人民日报"
-    scraper.scrape_and_save(test_account, max_pages=2)
+    # 测试爬取单个公众号（爬取最近7天的文章）
+    test_account = "光储星球"
+    scraper.scrape_and_save(test_account, days=7)
 
     # 显示统计信息
     stats = scraper.storage.get_statistics()

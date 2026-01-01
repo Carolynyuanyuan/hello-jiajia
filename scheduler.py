@@ -60,30 +60,40 @@ class TaskScheduler:
     def _get_default_config(self) -> dict:
         """获取默认配置"""
         return {
-            'accounts': ['人民日报', '新华社'],
+            'accounts': ['光储星球'],
+            'scrape_schedule': {
+                'enabled': True,
+                'day': 'monday',
+                'time': '09:00'
+            },
+            'weekly_digest': {
+                'enabled': True,
+                'generate_after_scrape': True
+            },
+            'days': 7,  # 爬取最近7天的文章
             'scrape_time': '08:00',
             'digest_time': '20:00',
-            'max_pages': 3,
-            'enable_weekly_digest': True,
+            'enable_weekly_digest': False,
             'weekly_digest_day': 'sunday',
             'weekly_digest_time': '21:00'
         }
 
     def scrape_task(self):
-        """爬取任务"""
+        """爬取任务（按时间范围）"""
         try:
             logger.info("=" * 60)
             logger.info("开始执行爬取任务")
             logger.info("=" * 60)
 
             accounts = self.config.get('accounts', [])
-            max_pages = self.config.get('max_pages', 3)
+            days = self.config.get('days', 7)  # 默认爬取最近7天
 
             if not accounts:
                 logger.warning("配置中没有公众号列表，跳过爬取任务")
                 return
 
-            self.scraper.scrape_multiple_accounts(accounts, max_pages)
+            logger.info(f"目标: 爬取最近 {days} 天的文章")
+            self.scraper.scrape_multiple_accounts(accounts, days)
 
             # 显示统计
             stats = self.storage.get_statistics()
@@ -242,7 +252,7 @@ class TaskScheduler:
         # 显示配置
         logger.info("\n当前配置:")
         logger.info(f"  监控公众号: {', '.join(self.config.get('accounts', []))}")
-        logger.info(f"  每页抓取: {self.config.get('max_pages', 3)} 页")
+        logger.info(f"  时间范围: 最近 {self.config.get('days', 7)} 天")
 
         # 显示爬取调度
         scrape_schedule = self.config.get('scrape_schedule', {})
