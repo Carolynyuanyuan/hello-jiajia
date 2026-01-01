@@ -48,3 +48,4 @@ logs/
 .DS_Store
 Thumbs.db
 wechat_cookies.txt
+wechat_api_config.txt

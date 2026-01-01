@@ -11,6 +11,7 @@ import os
 from datetime import datetime
 from wechat_scraper import WeChatScraper
 from wechat_scraper_direct import scrape_wechat_direct
+from wechat_api_scraper import scrape_wechat_api
 from digest_generator import DigestGenerator
 from article_storage import ArticleStorage
 import logging
@@ -98,7 +99,17 @@ class TaskScheduler:
             logger.info(f"目标: 爬取最近 {days} 天的文章")
 
             # 根据配置选择爬取方式
-            if scrape_method == 'direct':
+            if scrape_method == 'api':
+                logger.info("使用微信后台 API 方式（推荐）")
+                total_saved = 0
+                for account in accounts:
+                    try:
+                        saved = scrape_wechat_api(account, days)
+                        total_saved += saved
+                    except Exception as e:
+                        logger.error(f"爬取 {account} 失败: {e}")
+                logger.info(f"总计保存 {total_saved} 篇新文章")
+            elif scrape_method == 'direct':
                 logger.info("使用直接爬取方式（Playwright + 微信公众号）")
                 total_saved = 0
                 for account in accounts:
