@@ -75,7 +75,18 @@ class WeChatDirectScraper:
                 history_url = f"https://mp.weixin.qq.com/mp/profile_ext?action=home&__biz={biz}&scene=124"
 
                 print(f"正在访问历史消息页面...")
+                print(f"URL: {history_url}")
                 await page.goto(history_url, timeout=30000, wait_until='domcontentloaded')
+
+                # 保存页面截图用于调试
+                await page.screenshot(path='debug_page.png')
+                print(f"✓ 页面截图已保存: debug_page.png")
+
+                # 保存页面 HTML 用于调试
+                html_content = await page.content()
+                with open('debug_page.html', 'w', encoding='utf-8') as f:
+                    f.write(html_content)
+                print(f"✓ 页面 HTML 已保存: debug_page.html")
 
                 # 等待内容加载
                 await asyncio.sleep(3)
